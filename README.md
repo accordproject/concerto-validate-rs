@@ -14,6 +14,7 @@ This validator implements the core functionality of the JavaScript `validateMeta
 
 ## Features
 
+- ✅ **Auto-Updating Metamodel**: Build script automatically checks and updates the metamodel from the official repository
 - ✅ **Dynamic Metamodel Loading**: Loads metamodel from raw JSON instead of hardcoded structures
 - ✅ **Complete Metamodel Support**: Validates against the full Concerto metamodel specification
 - ✅ **Structural Validation**: Ensures JSON structure matches expected Concerto AST format
@@ -31,6 +32,25 @@ Add this to your `Cargo.toml`:
 [dependencies]
 concerto-validator-rs = "0.1.0"
 ```
+
+## Automatic Metamodel Updates
+
+The library includes a build script that automatically ensures you're always using the latest version of the [Concerto Metamodel](https://github.com/accordproject/concerto-metamodel/blob/main/lib/metamodel.json) as the source of truth.
+
+**How it works:**
+- On every build, the script checks the local `metamodel.json` against the official version
+- If the local file is missing, outdated, or corrupted, it automatically downloads the latest version
+- The comparison uses SHA256 hashing of normalized JSON to detect changes
+- Build warnings inform you when updates occur
+
+**Features:**
+- ✅ Automatic detection of metamodel updates
+- ✅ Graceful fallback to local version if network is unavailable
+- ✅ JSON validation to ensure downloaded content is valid
+- ✅ Hash-based comparison for reliable change detection
+- ✅ Build-time integration with no runtime overhead
+
+This ensures that your validator is always using the official, up-to-date metamodel definition without manual intervention.
 
 ## Usage
 
