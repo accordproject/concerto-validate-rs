@@ -6,13 +6,15 @@ A Rust library that validates Accord Project Concerto data models in their JSON 
 
 This validator implements the core functionality of the JavaScript `validateMetaModel` function by:
 
-1. Loading the [Concerto Metamodel](https://github.com/accordproject/concerto-metamodel) as the validation schema
-2. Using a `Serializer` (equivalent to the JavaScript Serializer class) that employs a `JSONPopulator` to deserialize and validate JSON data
-3. Using a `Factory` (equivalent to the JavaScript Factory class) for semantic validation
-4. Providing comprehensive error reporting for validation failures
+1. Loading the raw [Concerto Metamodel JSON](https://github.com/accordproject/concerto-metamodel/blob/main/lib/metamodel.json) directly as the validation schema
+2. Using a `MetamodelManager` that works with raw JSON instead of hardcoded Rust structs
+3. Using a `Serializer` (equivalent to the JavaScript Serializer class) that validates JSON structure against the metamodel
+4. Using a `Factory` (equivalent to the JavaScript Factory class) for semantic validation
+5. Providing comprehensive error reporting for validation failures
 
 ## Features
 
+- ✅ **Dynamic Metamodel Loading**: Loads metamodel from raw JSON instead of hardcoded structures
 - ✅ **Complete Metamodel Support**: Validates against the full Concerto metamodel specification
 - ✅ **Structural Validation**: Ensures JSON structure matches expected Concerto AST format
 - ✅ **Type Validation**: Validates property types, arrays, optionality, and nested objects
@@ -138,10 +140,10 @@ The library follows the same architectural patterns as the JavaScript implementa
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Validator     │────│   Serializer    │────│  JSONPopulator  │
+│   Validator     │────│   Serializer    │────│ MetamodelManager│
 │                 │    │                 │    │                 │
-│ Main validation │    │ Type validation │    │ JSON parsing &  │
-│ orchestration   │    │ & constraints   │    │ structure check │
+│ Main validation │    │ JSON validation │    │ Raw JSON schema │
+│ orchestration   │    │ orchestration   │    │ validation      │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │
          │              ┌─────────────────┐

@@ -1,286 +1,272 @@
-use serde::{Deserialize, Serialize};
+use serde_json::Value;
 use std::collections::HashMap;
 
-/// Root metamodel structure
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Model {
-    #[serde(rename = "$class")]
-    pub class: String,
-    pub decorators: Option<Vec<Decorator>>,
-    pub namespace: String,
-    pub imports: Vec<Import>,
-    pub declarations: Vec<Declaration>,
+/// Metamodel manager that works with raw JSON instead of hardcoded structs
+/// This allows us to validate any metamodel structure against the Concerto metamodel
+pub struct MetamodelManager {
+    /// The raw Concerto metamodel JSON
+    concerto_metamodel: Value,
+    /// Registry of type declarations from the metamodel
+    type_registry: HashMap<String, Value>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Decorator {
-    #[serde(rename = "$class")]
-    pub class: String,
-    pub name: String,
-    pub arguments: Option<Vec<DecoratorArgument>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "$class")]
-pub enum DecoratorArgument {
-    #[serde(rename = "concerto.metamodel@1.0.0.DecoratorString")]
-    DecoratorString { value: String },
-    #[serde(rename = "concerto.metamodel@1.0.0.DecoratorNumber")]
-    DecoratorNumber { value: f64 },
-    #[serde(rename = "concerto.metamodel@1.0.0.DecoratorBoolean")]
-    DecoratorBoolean { value: bool },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Import {
-    #[serde(rename = "$class")]
-    pub class: String,
-    pub namespace: String,
-    pub uri: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "$class")]
-pub enum Declaration {
-    #[serde(rename = "concerto.metamodel@1.0.0.ConceptDeclaration")]
-    ConceptDeclaration {
-        name: String,
-        #[serde(rename = "isAbstract")]
-        is_abstract: bool,
-        properties: Vec<Property>,
-        decorators: Option<Vec<Decorator>>,
-        #[serde(rename = "superType")]
-        super_type: Option<TypeIdentifier>,
-    },
-    #[serde(rename = "concerto.metamodel@1.0.0.AssetDeclaration")]
-    AssetDeclaration {
-        name: String,
-        #[serde(rename = "isAbstract")]
-        is_abstract: bool,
-        properties: Vec<Property>,
-        decorators: Option<Vec<Decorator>>,
-        #[serde(rename = "superType")]
-        super_type: Option<TypeIdentifier>,
-    },
-    #[serde(rename = "concerto.metamodel@1.0.0.ParticipantDeclaration")]
-    ParticipantDeclaration {
-        name: String,
-        #[serde(rename = "isAbstract")]
-        is_abstract: bool,
-        properties: Vec<Property>,
-        decorators: Option<Vec<Decorator>>,
-        #[serde(rename = "superType")]
-        super_type: Option<TypeIdentifier>,
-    },
-    #[serde(rename = "concerto.metamodel@1.0.0.TransactionDeclaration")]
-    TransactionDeclaration {
-        name: String,
-        #[serde(rename = "isAbstract")]
-        is_abstract: bool,
-        properties: Vec<Property>,
-        decorators: Option<Vec<Decorator>>,
-        #[serde(rename = "superType")]
-        super_type: Option<TypeIdentifier>,
-    },
-    #[serde(rename = "concerto.metamodel@1.0.0.EventDeclaration")]
-    EventDeclaration {
-        name: String,
-        #[serde(rename = "isAbstract")]
-        is_abstract: bool,
-        properties: Vec<Property>,
-        decorators: Option<Vec<Decorator>>,
-        #[serde(rename = "superType")]
-        super_type: Option<TypeIdentifier>,
-    },
-    #[serde(rename = "concerto.metamodel@1.0.0.EnumDeclaration")]
-    EnumDeclaration {
-        name: String,
-        properties: Vec<EnumProperty>,
-        decorators: Option<Vec<Decorator>>,
-    },
-    #[serde(rename = "concerto.metamodel@1.0.0.MapDeclaration")]
-    MapDeclaration {
-        name: String,
-        key: TypeIdentifier,
-        value: TypeIdentifier,
-        decorators: Option<Vec<Decorator>>,
-    },
-    #[serde(rename = "concerto.metamodel@1.0.0.ScalarDeclaration")]
-    ScalarDeclaration {
-        name: String,
-        #[serde(rename = "type")]
-        scalar_type: String,
-        decorators: Option<Vec<Decorator>>,
-    },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "$class")]
-pub enum Property {
-    #[serde(rename = "concerto.metamodel@1.0.0.StringProperty")]
-    StringProperty {
-        name: String,
-        #[serde(rename = "isArray")]
-        is_array: bool,
-        #[serde(rename = "isOptional")]
-        is_optional: bool,
-        decorators: Option<Vec<Decorator>>,
-        validator: Option<StringValidator>,
-        #[serde(rename = "defaultValue")]
-        default_value: Option<String>,
-    },
-    #[serde(rename = "concerto.metamodel@1.0.0.IntegerProperty")]
-    IntegerProperty {
-        name: String,
-        #[serde(rename = "isArray")]
-        is_array: bool,
-        #[serde(rename = "isOptional")]
-        is_optional: bool,
-        decorators: Option<Vec<Decorator>>,
-        validator: Option<IntegerValidator>,
-        #[serde(rename = "defaultValue")]
-        default_value: Option<i64>,
-    },
-    #[serde(rename = "concerto.metamodel@1.0.0.LongProperty")]
-    LongProperty {
-        name: String,
-        #[serde(rename = "isArray")]
-        is_array: bool,
-        #[serde(rename = "isOptional")]
-        is_optional: bool,
-        decorators: Option<Vec<Decorator>>,
-        validator: Option<IntegerValidator>,
-        #[serde(rename = "defaultValue")]
-        default_value: Option<i64>,
-    },
-    #[serde(rename = "concerto.metamodel@1.0.0.DoubleProperty")]
-    DoubleProperty {
-        name: String,
-        #[serde(rename = "isArray")]
-        is_array: bool,
-        #[serde(rename = "isOptional")]
-        is_optional: bool,
-        decorators: Option<Vec<Decorator>>,
-        validator: Option<DoubleValidator>,
-        #[serde(rename = "defaultValue")]
-        default_value: Option<f64>,
-    },
-    #[serde(rename = "concerto.metamodel@1.0.0.BooleanProperty")]
-    BooleanProperty {
-        name: String,
-        #[serde(rename = "isArray")]
-        is_array: bool,
-        #[serde(rename = "isOptional")]
-        is_optional: bool,
-        decorators: Option<Vec<Decorator>>,
-        #[serde(rename = "defaultValue")]
-        default_value: Option<bool>,
-    },
-    #[serde(rename = "concerto.metamodel@1.0.0.DateTimeProperty")]
-    DateTimeProperty {
-        name: String,
-        #[serde(rename = "isArray")]
-        is_array: bool,
-        #[serde(rename = "isOptional")]
-        is_optional: bool,
-        decorators: Option<Vec<Decorator>>,
-    },
-    #[serde(rename = "concerto.metamodel@1.0.0.ObjectProperty")]
-    ObjectProperty {
-        name: String,
-        #[serde(rename = "isArray")]
-        is_array: bool,
-        #[serde(rename = "isOptional")]
-        is_optional: bool,
-        decorators: Option<Vec<Decorator>>,
-        #[serde(rename = "type")]
-        object_type: TypeIdentifier,
-        #[serde(rename = "defaultValue")]
-        default_value: Option<String>,
-    },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct EnumProperty {
-    #[serde(rename = "$class")]
-    pub class: String,
-    pub name: String,
-    pub decorators: Option<Vec<Decorator>>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TypeIdentifier {
-    #[serde(rename = "$class")]
-    pub class: String,
-    pub name: String,
-    pub namespace: Option<String>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "$class")]
-pub enum StringValidator {
-    #[serde(rename = "concerto.metamodel@1.0.0.StringRegexValidator")]
-    StringRegexValidator {
-        pattern: String,
-        flags: String,
-    },
-    #[serde(rename = "concerto.metamodel@1.0.0.StringLengthValidator")]
-    StringLengthValidator {
-        #[serde(rename = "minLength")]
-        min_length: Option<i32>,
-        #[serde(rename = "maxLength")]
-        max_length: Option<i32>,
-    },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "$class")]
-pub enum IntegerValidator {
-    #[serde(rename = "concerto.metamodel@1.0.0.IntegerDomainValidator")]
-    IntegerDomainValidator {
-        #[serde(rename = "lower")]
-        lower: Option<i64>,
-        #[serde(rename = "upper")]
-        upper: Option<i64>,
-    },
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(tag = "$class")]
-pub enum DoubleValidator {
-    #[serde(rename = "concerto.metamodel@1.0.0.DoubleDomainValidator")]
-    DoubleDomainValidator {
-        #[serde(rename = "lower")]
-        lower: Option<f64>,
-        #[serde(rename = "upper")]
-        upper: Option<f64>,
-    },
-}
-
-impl Model {
-    /// Load the metamodel from the embedded JSON
-    pub fn load_concerto_metamodel() -> Result<Model, crate::error::ValidationError> {
+impl MetamodelManager {
+    /// Load the Concerto metamodel from the embedded JSON file
+    pub fn new() -> Result<Self, crate::error::ValidationError> {
         let metamodel_json = include_str!("../metamodel.json");
-        let model: Model = serde_json::from_str(metamodel_json)?;
-        Ok(model)
+        let concerto_metamodel: Value = serde_json::from_str(metamodel_json)?;
+        
+        let type_registry = Self::build_type_registry(&concerto_metamodel)?;
+        
+        Ok(Self {
+            concerto_metamodel,
+            type_registry,
+        })
     }
     
-    /// Create a type registry from the declarations
-    pub fn create_type_registry(&self) -> HashMap<String, &Declaration> {
+    /// Build a type registry from the metamodel declarations
+    fn build_type_registry(metamodel: &Value) -> Result<HashMap<String, Value>, crate::error::ValidationError> {
         let mut registry = HashMap::new();
-        for declaration in &self.declarations {
-            let name = match declaration {
-                Declaration::ConceptDeclaration { name, .. } => name,
-                Declaration::AssetDeclaration { name, .. } => name,
-                Declaration::ParticipantDeclaration { name, .. } => name,
-                Declaration::TransactionDeclaration { name, .. } => name,
-                Declaration::EventDeclaration { name, .. } => name,
-                Declaration::EnumDeclaration { name, .. } => name,
-                Declaration::MapDeclaration { name, .. } => name,
-                Declaration::ScalarDeclaration { name, .. } => name,
-            };
-            registry.insert(format!("{}.{}", self.namespace, name), declaration);
+        
+        let declarations = metamodel
+            .get("declarations")
+            .and_then(|v| v.as_array())
+            .ok_or_else(|| crate::error::ValidationError::MetamodelError {
+                message: "Missing declarations in metamodel".to_string(),
+            })?;
+        
+        let namespace = metamodel
+            .get("namespace")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| crate::error::ValidationError::MetamodelError {
+                message: "Missing namespace in metamodel".to_string(),
+            })?;
+            
+        for declaration in declarations {
+            if let Some(name) = declaration.get("name").and_then(|v| v.as_str()) {
+                let full_name = format!("{}.{}", namespace, name);
+                registry.insert(full_name, declaration.clone());
+            }
         }
-        registry
+        
+        Ok(registry)
+    }
+    
+    /// Get the raw metamodel JSON
+    pub fn get_metamodel(&self) -> &Value {
+        &self.concerto_metamodel
+    }
+    
+    /// Get a type declaration by its full name
+    pub fn get_type_declaration(&self, full_name: &str) -> Option<&Value> {
+        self.type_registry.get(full_name)
+    }
+    
+    /// Get all type declarations
+    pub fn get_type_registry(&self) -> &HashMap<String, Value> {
+        &self.type_registry
+    }
+    
+    /// Check if a class exists in the metamodel
+    pub fn has_class(&self, class_name: &str) -> bool {
+        self.type_registry.contains_key(class_name)
+    }
+    
+    /// Get the class type from a declaration (e.g., "ConceptDeclaration", "AssetDeclaration")
+    pub fn get_declaration_type(&self, full_name: &str) -> Option<String> {
+        self.type_registry.get(full_name)
+            .and_then(|decl| decl.get("$class"))
+            .and_then(|class| class.as_str())
+            .map(|s| s.to_string())
+    }
+    
+    /// Validate that a given JSON structure matches the metamodel schema
+    pub fn validate_against_metamodel(&self, json_to_validate: &Value) -> Result<(), crate::error::ValidationError> {
+        // The input should be a Model that follows the structure defined in the metamodel
+        self.validate_model_structure(json_to_validate)
+    }
+    
+    /// Validate the structure of a model JSON against the metamodel
+    fn validate_model_structure(&self, model: &Value) -> Result<(), crate::error::ValidationError> {
+        let obj = model.as_object()
+            .ok_or_else(|| crate::error::ValidationError::TypeMismatch {
+                expected: "object".to_string(),
+                found: "non-object".to_string(),
+            })?;
+
+        // Check $class
+        let class_name = obj.get("$class")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| crate::error::ValidationError::MissingProperty {
+                property: "$class".to_string(),
+            })?;
+
+        if !class_name.ends_with(".Model") {
+            return Err(crate::error::ValidationError::TypeMismatch {
+                expected: "Model".to_string(),
+                found: class_name.to_string(),
+            });
+        }
+
+        // Check required properties for Model
+        self.validate_required_property(obj, "namespace", "string")?;
+        
+        // Validate declarations array if present
+        if let Some(declarations) = obj.get("declarations") {
+            let decl_array = declarations.as_array()
+                .ok_or_else(|| crate::error::ValidationError::TypeMismatch {
+                    expected: "array".to_string(),
+                    found: "non-array".to_string(),
+                })?;
+                
+            for declaration in decl_array {
+                self.validate_declaration_structure(declaration)?;
+            }
+        }
+        
+        // Validate imports array if present
+        if let Some(imports) = obj.get("imports") {
+            let imports_array = imports.as_array()
+                .ok_or_else(|| crate::error::ValidationError::TypeMismatch {
+                    expected: "array".to_string(),
+                    found: "non-array".to_string(),
+                })?;
+                
+            for import in imports_array {
+                self.validate_import_structure(import)?;
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Validate a declaration structure
+    fn validate_declaration_structure(&self, declaration: &Value) -> Result<(), crate::error::ValidationError> {
+        let obj = declaration.as_object()
+            .ok_or_else(|| crate::error::ValidationError::TypeMismatch {
+                expected: "object".to_string(),
+                found: "non-object".to_string(),
+            })?;
+
+        // Check $class
+        let class_name = obj.get("$class")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| crate::error::ValidationError::MissingProperty {
+                property: "$class".to_string(),
+            })?;
+
+        // Validate based on declaration type
+        match class_name {
+            name if name.ends_with("ConceptDeclaration") ||
+                    name.ends_with("AssetDeclaration") ||
+                    name.ends_with("ParticipantDeclaration") ||
+                    name.ends_with("TransactionDeclaration") ||
+                    name.ends_with("EventDeclaration") => {
+                self.validate_required_property(obj, "name", "string")?;
+                
+                if let Some(properties) = obj.get("properties") {
+                    let props_array = properties.as_array()
+                        .ok_or_else(|| crate::error::ValidationError::TypeMismatch {
+                            expected: "array".to_string(),
+                            found: "non-array".to_string(),
+                        })?;
+                        
+                    for property in props_array {
+                        self.validate_property_structure(property)?;
+                    }
+                }
+            }
+            name if name.ends_with("EnumDeclaration") => {
+                self.validate_required_property(obj, "name", "string")?;
+            }
+            name if name.ends_with("MapDeclaration") => {
+                self.validate_required_property(obj, "name", "string")?;
+            }
+            name if name.ends_with("ScalarDeclaration") => {
+                self.validate_required_property(obj, "name", "string")?;
+                self.validate_required_property(obj, "type", "string")?;
+            }
+            _ => {
+                return Err(crate::error::ValidationError::UnknownClass {
+                    class_name: class_name.to_string(),
+                });
+            }
+        }
+        
+        Ok(())
+    }
+    
+    /// Validate a property structure
+    fn validate_property_structure(&self, property: &Value) -> Result<(), crate::error::ValidationError> {
+        let obj = property.as_object()
+            .ok_or_else(|| crate::error::ValidationError::TypeMismatch {
+                expected: "object".to_string(),
+                found: "non-object".to_string(),
+            })?;
+
+        // Check $class
+        obj.get("$class")
+            .and_then(|v| v.as_str())
+            .ok_or_else(|| crate::error::ValidationError::MissingProperty {
+                property: "$class".to_string(),
+            })?;
+
+        // All properties must have these fields
+        self.validate_required_property(obj, "name", "string")?;
+        self.validate_required_property(obj, "isArray", "boolean")?;
+        self.validate_required_property(obj, "isOptional", "boolean")?;
+        
+        Ok(())
+    }
+    
+    /// Validate an import structure
+    fn validate_import_structure(&self, import: &Value) -> Result<(), crate::error::ValidationError> {
+        let obj = import.as_object()
+            .ok_or_else(|| crate::error::ValidationError::TypeMismatch {
+                expected: "object".to_string(),
+                found: "non-object".to_string(),
+            })?;
+
+        self.validate_required_property(obj, "namespace", "string")?;
+        
+        Ok(())
+    }
+    
+    /// Helper to validate that a required property exists and has the correct type
+    fn validate_required_property(
+        &self, 
+        obj: &serde_json::Map<String, Value>, 
+        property_name: &str, 
+        expected_type: &str
+    ) -> Result<(), crate::error::ValidationError> {
+        let value = obj.get(property_name)
+            .ok_or_else(|| crate::error::ValidationError::MissingProperty {
+                property: property_name.to_string(),
+            })?;
+            
+        let is_correct_type = match expected_type {
+            "string" => value.is_string(),
+            "boolean" => value.is_boolean(),
+            "number" => value.is_number(),
+            "array" => value.is_array(),
+            "object" => value.is_object(),
+            _ => true, // Unknown types are accepted
+        };
+        
+        if !is_correct_type {
+            return Err(crate::error::ValidationError::TypeMismatch {
+                expected: expected_type.to_string(),
+                found: match value {
+                    Value::String(_) => "string",
+                    Value::Bool(_) => "boolean", 
+                    Value::Number(_) => "number",
+                    Value::Array(_) => "array",
+                    Value::Object(_) => "object",
+                    Value::Null => "null",
+                }.to_string(),
+            });
+        }
+        
+        Ok(())
     }
 }

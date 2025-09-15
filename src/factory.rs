@@ -1,7 +1,6 @@
 use crate::error::{ValidationError, ValidationResult};
-use crate::metamodel::{Model, Declaration};
+use crate::metamodel::MetamodelManager;
 use serde_json::Value;
-use std::collections::HashMap;
 
 /// Factory class equivalent - manages model creation and validation
 /// This replicates the functionality of the JavaScript Factory class
@@ -17,8 +16,8 @@ impl Factory {
 
     /// Create a new factory with the Concerto metamodel
     pub fn new_with_metamodel() -> ValidationResult<Self> {
-        let metamodel = Model::load_concerto_metamodel()?;
-        let model_manager = ModelManager::new(metamodel);
+        let metamodel_manager = MetamodelManager::new()?;
+        let model_manager = ModelManager::new(metamodel_manager);
         Ok(Self { model_manager })
     }
 
@@ -189,27 +188,20 @@ impl Factory {
 /// Model Manager - manages the loaded models and their declarations
 /// This is a simplified version of the JavaScript ModelManager
 pub struct ModelManager {
-    model: Model,
-    type_registry: HashMap<String, Declaration>,
+    metamodel_manager: MetamodelManager,
 }
 
 impl ModelManager {
-    /// Create a new model manager with the given model
-    pub fn new(model: Model) -> Self {
-        let type_registry = model.create_type_registry()
-            .into_iter()
-            .map(|(k, v)| (k, v.clone()))
-            .collect();
-
+    /// Create a new model manager with the given metamodel manager
+    pub fn new(metamodel_manager: MetamodelManager) -> Self {
         Self {
-            model,
-            type_registry,
+            metamodel_manager,
         }
     }
 
     /// Validate that a class exists in the model
     pub fn validate_class(&self, class_name: &str) -> ValidationResult<()> {
-        if !self.type_registry.contains_key(class_name) {
+        if !self.metamodel_manager.has_class(class_name) {
             return Err(ValidationError::UnknownClass {
                 class_name: class_name.to_string(),
             });
@@ -219,11 +211,11 @@ impl ModelManager {
 
     /// Validate that a class is a concept declaration
     pub fn validate_concept_class(&self, class_name: &str) -> ValidationResult<()> {
-        match self.type_registry.get(class_name) {
-            Some(Declaration::ConceptDeclaration { .. }) => Ok(()),
-            Some(_) => Err(ValidationError::TypeMismatch {
+        match self.metamodel_manager.get_declaration_type(class_name) {
+            Some(class_type) if class_type.ends_with("ConceptDeclaration") => Ok(()),
+            Some(other_type) => Err(ValidationError::TypeMismatch {
                 expected: "ConceptDeclaration".to_string(),
-                found: "other declaration type".to_string(),
+                found: other_type,
             }),
             None => Err(ValidationError::UnknownClass {
                 class_name: class_name.to_string(),
@@ -233,11 +225,11 @@ impl ModelManager {
 
     /// Validate that a class is a transaction declaration
     pub fn validate_transaction_class(&self, class_name: &str) -> ValidationResult<()> {
-        match self.type_registry.get(class_name) {
-            Some(Declaration::TransactionDeclaration { .. }) => Ok(()),
-            Some(_) => Err(ValidationError::TypeMismatch {
+        match self.metamodel_manager.get_declaration_type(class_name) {
+            Some(class_type) if class_type.ends_with("TransactionDeclaration") => Ok(()),
+            Some(other_type) => Err(ValidationError::TypeMismatch {
                 expected: "TransactionDeclaration".to_string(),
-                found: "other declaration type".to_string(),
+                found: other_type,
             }),
             None => Err(ValidationError::UnknownClass {
                 class_name: class_name.to_string(),
@@ -247,11 +239,11 @@ impl ModelManager {
 
     /// Validate that a class is an event declaration
     pub fn validate_event_class(&self, class_name: &str) -> ValidationResult<()> {
-        match self.type_registry.get(class_name) {
-            Some(Declaration::EventDeclaration { .. }) => Ok(()),
-            Some(_) => Err(ValidationError::TypeMismatch {
+        match self.metamodel_manager.get_declaration_type(class_name) {
+            Some(class_type) if class_type.ends_with("EventDeclaration") => Ok(()),
+            Some(other_type) => Err(ValidationError::TypeMismatch {
                 expected: "EventDeclaration".to_string(),
-                found: "other declaration type".to_string(),
+                found: other_type,
             }),
             None => Err(ValidationError::UnknownClass {
                 class_name: class_name.to_string(),
@@ -259,18 +251,8 @@ impl ModelManager {
         }
     }
 
-    /// Get a declaration by name
-    pub fn get_declaration(&self, class_name: &str) -> Option<&Declaration> {
-        self.type_registry.get(class_name)
-    }
-
-    /// Get the underlying model
-    pub fn get_model(&self) -> &Model {
-        &self.model
-    }
-
-    /// Get all declarations
-    pub fn get_declarations(&self) -> &HashMap<String, Declaration> {
-        &self.type_registry
+    /// Get the metamodel manager
+    pub fn get_metamodel_manager(&self) -> &MetamodelManager {
+        &self.metamodel_manager
     }
 }
