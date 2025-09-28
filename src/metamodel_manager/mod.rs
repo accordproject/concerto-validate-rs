@@ -4,7 +4,7 @@ use crate::error::ValidationError;
 use type_definition::{ConceptDeclaration, Property, TypeDefinition};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use serde_json::Map;
 
 type JsonObject = Map<String, Value>;
@@ -62,6 +62,7 @@ impl<'model_manager> MetamodelManager {
         if invalid_properties.len() > 0 {
             return Err(ValidationError::UnknownProperty {
                 property_name: invalid_properties.get(0).unwrap().clone(),
+                type_name: type_def.class_name(),
             });
         }
         Ok(())
@@ -70,14 +71,18 @@ impl<'model_manager> MetamodelManager {
     fn validate_required_properties(&self, thing: &'model_manager JsonObject, type_def: &TypeDefinition) -> Result<(), ValidationError> {
         let required_properties = type_def.required_properties();
 
-        let missing_properties = thing.keys()
+        let existing_properties = thing.keys()
             .map(|x| x.clone())
-            .filter(|x| !required_properties.get(x).is_some())
+            .collect::<HashSet<String>>();
+
+        let missing_properties = required_properties.keys()
+            .filter(|x| !existing_properties.contains(x.as_str()))
+            .map(|x| x.clone())
             .collect::<Vec<String>>();
 
         if required_properties.len() > 0 && missing_properties.len() > 0
         {
-            return Err(ValidationError::MissingProperty {
+            return Err(ValidationError::MissingRequiredProperty {
                 property: missing_properties.get(0).unwrap().clone(),
             });
         }
@@ -93,7 +98,35 @@ impl<'model_manager> MetamodelManager {
                     return Ok(());
                 }
                 if let Some(property_type) = properties.get(prop_name) {
-                    self.validate_property(property_type, prop_value)
+                    if property_type.is_array {
+                        if prop_value.is_array() {
+                            let validation_errors = prop_value.as_array().unwrap()
+                                .iter()
+                                .map(|x| {
+                                    self.validate_property(property_type, x)
+                                })
+                                .filter(|x| x.is_err())
+                                .collect::<Vec<Result<(), ValidationError>>>();
+
+                            if validation_errors.len() > 0 {
+                                match validation_errors.get(0).unwrap() {
+                                    Err(e) => Err(ValidationError::Generic {
+                                        message: e.to_string(),
+                                    }),
+                                    _ => unreachable!()
+                                }
+                            } else {
+                                Ok(())
+                            }
+                        } else {
+                            return Err(ValidationError::Generic {
+                                message: format!("Error validating property {:}. Expected an array.", prop_name),
+                            })
+                        }
+
+                    } else {
+                        self.validate_property(property_type, prop_value)
+                    }
                 } else {
                     Err(ValidationError::Generic {
                         message: format!("Error validating property {:}", prop_name),
@@ -127,10 +160,6 @@ impl<'model_manager> MetamodelManager {
     ) -> Result<(), ValidationError> {
         match type_def.class.as_str() {
             "concerto.metamodel@1.0.0.ObjectProperty" => {
-                // let super_type_class = format!("{}.{}", CONCERTO_METAMODEL_NAMESPACE, type_def.super_type.name);
-                // let super_type = self.type_registry.get(&super_type_class).ok_or(ValidationError::Generic {
-                //     message: "Cannot find the super type".to_string(),
-                // })?;
                 self.validate_object_property(thing)
             },
             "concerto.metamodel@1.0.0.StringProperty" => self.validate_string_property(thing),
@@ -178,8 +207,8 @@ impl<'model_manager> MetamodelManager {
     }
 
     fn validate_object_property(&self, thing: &'model_manager Value) -> Result<(), ValidationError> {
-        // let type_def = self.get_type_def(thing)?;
-
+        let obj = self.get_serialized_object(thing)?;
+        self.validate_resource(obj)?;
         Ok(())
     }
 }
@@ -238,7 +267,7 @@ impl<'model_manager> MetamodelManager {
     }
 
     fn get_class_name(&self, thing: &'model_manager JsonObject) -> Result<&'model_manager str, ValidationError> {
-        thing.get("$class").ok_or(ValidationError::MissingProperty {
+        thing.get("$class").ok_or(ValidationError::MissingRequiredProperty {
             property: "$class".to_string(),
         })?.as_str().ok_or(ValidationError::Generic {
             message: "Cannot convert $class to string".to_string(),

@@ -19,6 +19,9 @@ impl TypeDefinition {
     pub fn required_properties(&self) -> HashMap<String, &Property> {
         self.inner.properties.iter().filter(|x| !x.is_optional).map(|x| (x.name.clone(), x)).collect()
     }
+    pub fn class_name(&self) -> String {
+        self.inner.class.clone()
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -30,7 +33,7 @@ pub(crate) struct Property {
     pub is_array: bool,
     #[serde(rename = "isOptional")]
     pub is_optional: bool,
-    #[serde(rename = "type")]
+    #[serde(default, rename = "type")]
     pub super_type: SuperType,
 }
 
@@ -42,10 +45,10 @@ pub(crate) struct ConceptDeclaration {
     is_abstract: bool,
     pub properties: Vec<Property>,
     pub name: String,
-    #[serde(rename = "superType")]
+    #[serde(default, rename = "superType")]
     pub super_type: SuperType,
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub(crate) struct SuperType {
     #[serde(rename = "$class")]
     pub class: String,
