@@ -1,16 +1,13 @@
 # Concerto Validator RS
 
-A Rust library that validates Accord Project Concerto data models in their JSON AST (Abstract Syntax Tree) format. This library replicates the validation logic from the JavaScript implementation found in the [Accord Project Concerto repository](https://github.com/accordproject/concerto).
+A Rust library that validates Accord Project Concerto data models in their JSON AST (Abstract Syntax Tree) format.
 
 ## Overview
 
 This validator implements the core functionality of the JavaScript `validateMetaModel` function by:
 
 1. Loading the raw [Concerto Metamodel JSON](https://github.com/accordproject/concerto-metamodel/blob/main/lib/metamodel.json) directly as the validation schema
-2. Using a `MetamodelManager` that works with raw JSON instead of hardcoded Rust structs
-3. Using a `Serializer` (equivalent to the JavaScript Serializer class) that validates JSON structure against the metamodel
-4. Using a `Factory` (equivalent to the JavaScript Factory class) for semantic validation
-5. Providing comprehensive error reporting for validation failures
+2. Using a `ModelManager` that works with raw JSON instead of hardcoded Rust structs. Except for a few structs needed to replicate some functionality of the `introspect` classes.
 
 ## Features
 
@@ -19,19 +16,12 @@ This validator implements the core functionality of the JavaScript `validateMeta
 - ✅ **Complete Metamodel Support**: Validates against the full Concerto metamodel specification
 - ✅ **Structural Validation**: Ensures JSON structure matches expected Concerto AST format
 - ✅ **Type Validation**: Validates property types, arrays, optionality, and nested objects
-- ✅ **Semantic Validation**: Checks business rules and constraints
 - ✅ **Error Reporting**: Provides detailed error messages for debugging
 - ✅ **Self-Validation**: Can validate the Concerto metamodel itself
 - ✅ **Performance**: Fast validation using native Rust performance
 
 ## Installation
-
-Add this to your `Cargo.toml`:
-
-```toml
-[dependencies]
-concerto-validator-rs = "0.1.0"
-```
+Currently the library is in early development phase, the package is not published to [crates.io](crates.io) yet.
 
 ## Automatic Metamodel Updates
 
@@ -47,7 +37,6 @@ The library includes a build script that automatically ensures you're always usi
 - ✅ Automatic detection of metamodel updates
 - ✅ Graceful fallback to local version if network is unavailable
 - ✅ JSON validation to ensure downloaded content is valid
-- ✅ Hash-based comparison for reliable change detection
 - ✅ Build-time integration with no runtime overhead
 
 This ensures that your validator is always using the official, up-to-date metamodel definition without manual intervention.
@@ -90,121 +79,26 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 ```
 
-### Advanced Usage
-
-```rust
-use concerto_validator_rs::{ConcertoValidator, ValidationError};
-
-fn main() -> Result<(), Box<dyn std::error::Error>> {
-    // Create a validator instance
-    let validator = ConcertoValidator::new()?;
-    
-    // Validate a model
-    let result = validator.validate(model_json);
-    
-    // Handle specific error types
-    match result {
-        Ok(()) => println!("Validation successful"),
-        Err(ValidationError::MissingProperty { property }) => {
-            println!("Missing required property: {}", property);
-        },
-        Err(ValidationError::TypeMismatch { expected, found }) => {
-            println!("Type mismatch: expected {}, found {}", expected, found);
-        },
-        Err(e) => println!("Other validation error: {}", e),
-    }
-
-    Ok(())
-}
-```
-
-## Error Types
-
-The library provides detailed error information through the `ValidationError` enum:
-
-- `JsonError`: Invalid JSON syntax
-- `IoError`: File system errors
-- `ValidationFailed`: General validation failure
-- `TypeMismatch`: Type doesn't match expected type
-- `MissingProperty`: Required property is missing
-- `InvalidPropertyValue`: Property value is invalid
-- `UnknownClass`: Referenced class is not defined
-- `MetamodelError`: Error loading the metamodel
-
-## Supported Declaration Types
-
-The validator supports all Concerto declaration types:
-
-- **ConceptDeclaration**: Business concepts
-- **AssetDeclaration**: Asset definitions
-- **ParticipantDeclaration**: Participant definitions
-- **TransactionDeclaration**: Transaction definitions
-- **EventDeclaration**: Event definitions
-- **EnumDeclaration**: Enumeration definitions
-- **MapDeclaration**: Map/dictionary definitions
-- **ScalarDeclaration**: Scalar type definitions
-
-## Supported Property Types
-
-- **StringProperty**: String values with optional validation
-- **IntegerProperty**: Integer values with optional range validation
-- **LongProperty**: Long integer values
-- **DoubleProperty**: Floating-point values
-- **BooleanProperty**: Boolean values
-- **DateTimeProperty**: Date/time values
-- **ObjectProperty**: References to other concepts
-
-## Architecture
-
-The library follows the same architectural patterns as the JavaScript implementation:
-
-```
-┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Validator     │────│   Serializer    │────│ MetamodelManager│
-│                 │    │                 │    │                 │
-│ Main validation │    │ JSON validation │    │ Raw JSON schema │
-│ orchestration   │    │ orchestration   │    │ validation      │
-└─────────────────┘    └─────────────────┘    └─────────────────┘
-         │                       │
-         │              ┌─────────────────┐
-         └──────────────│     Factory     │
-                        │                 │
-                        │ Semantic        │
-                        │ validation      │
-                        └─────────────────┘
-```
-
-## Examples
-
-Run the included examples:
-
-```bash
-cargo run --example basic_usage
-```
-
-## Testing
-
-Run the test suite:
-
-```bash
-cargo test
-```
-
-The tests include:
-- Validation of the Concerto metamodel itself
-- Validation of various valid model structures
-- Error handling for invalid models
-- Component integration testing
-
-## Contributing
-
-Contributions are welcome! Please feel free to submit a Pull Request.
-
-## License
-
-This project follows the same license as the Accord Project Concerto repository.
-
 ## Related Projects
 
 - [Accord Project Concerto](https://github.com/accordproject/concerto) - The original JavaScript implementation
 - [Concerto Metamodel](https://github.com/accordproject/concerto-metamodel) - The metamodel definition used for validation
+
+## License
+Accord Project source code files are made available under the [Apache License, Version 2.0][apache].
+Accord Project documentation files are made available under the [Creative Commons Attribution 4.0 International License][creativecommons] (CC-BY-4.0).
+
+Copyright 2018-2019 Clause, Inc. All trademarks are the property of their respective owners. See [LF Projects Trademark Policy](https://lfprojects.org/policies/trademark-policy/).
+
+[linuxfound]: https://www.linuxfoundation.org
+[charter]: https://github.com/accordproject/governance/blob/master/accord-project-technical-charter.md
+[apmain]: https://accordproject.org/ 
+[apblog]: https://medium.com/@accordhq
+[apdoc]: https://docs.accordproject.org/
+[apdiscord]: https://discord.com/invite/Zm99SKhhtA
+
+[contributing]: https://github.com/accordproject/concerto/blob/master/CONTRIBUTING.md
+[developers]: https://github.com/accordproject/concerto/blob/master/DEVELOPERS.md
+
+[apache]: https://github.com/accordproject/concerto/blob/master/LICENSE
+[creativecommons]: http://creativecommons.org/licenses/by/4.0/
