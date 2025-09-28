@@ -37,6 +37,6 @@ pub enum ValidationError {
     #[error("Unknown error")]
     UnknownError,
 
-    #[error("Debug: {message}")]
-    Debug { message: String },
+    #[error("Generic: {message}")]
+    Generic { message: String },
 }
