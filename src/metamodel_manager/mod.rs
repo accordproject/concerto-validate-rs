@@ -2,7 +2,6 @@ mod type_definition;
 
 use crate::error::ValidationError;
 use type_definition::{ConceptDeclaration, Property, TypeDefinition};
-use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
 use serde_json::Map;
@@ -42,48 +41,43 @@ impl<'model_manager> MetamodelManager {
     fn validate_resource(&self, thing: &'model_manager JsonObject) -> Result<(), ValidationError> {
         let class_name = self.get_class_name(thing)?;
 
-        let type_def = self.get_type_definition(&class_name)?;
+        let type_def = self.get_type_definition(class_name)?;
 
-        self.validate_expected_properties(thing, type_def)?;
-        self.validate_required_properties(thing, type_def)?;
+        let expected_properties = type_def.expected_properties();
+        let required_properties = type_def.required_properties();
+
+        self.validate_expected_properties(thing, &expected_properties)?;
+        self.validate_required_properties(thing, &required_properties)?;
         self.validate_property_structure(thing, type_def)?;
         Ok(())
     }
 
-    fn validate_expected_properties(&self, thing: &'model_manager JsonObject, type_def: &TypeDefinition) -> Result<(), ValidationError> {
-        let expected_properties = type_def.expected_properties();
-
+    fn validate_expected_properties(&self, thing: &'model_manager JsonObject, expected_properties: &HashMap<String, &Property>) -> Result<(), ValidationError> {
         let invalid_properties = thing
-            .keys()
-            .map(|x| x.clone())
-            .filter(|x| !expected_properties.contains_key(x) && x != "$class")
+            .keys().filter(|&x| !expected_properties.contains_key(x) && x != "$class").cloned()
             .collect::<Vec<String>>();
 
-        if invalid_properties.len() > 0 {
+        if !invalid_properties.is_empty() {
             return Err(ValidationError::UnknownProperty {
-                property_name: invalid_properties.get(0).unwrap().clone(),
-                type_name: type_def.class_name(),
+                property_name: invalid_properties.first().unwrap().clone(),
             });
         }
         Ok(())
     }
 
-    fn validate_required_properties(&self, thing: &'model_manager JsonObject, type_def: &TypeDefinition) -> Result<(), ValidationError> {
-        let required_properties = type_def.required_properties();
+    fn validate_required_properties(&self, thing: &'model_manager JsonObject, required_properties: &HashMap<String, &Property>) -> Result<(), ValidationError> {
 
-        let existing_properties = thing.keys()
-            .map(|x| x.clone())
+        let existing_properties = thing.keys().cloned()
             .collect::<HashSet<String>>();
 
         let missing_properties = required_properties.keys()
-            .filter(|x| !existing_properties.contains(x.as_str()))
-            .map(|x| x.clone())
+            .filter(|x| !existing_properties.contains(x.as_str())).cloned()
             .collect::<Vec<String>>();
 
-        if required_properties.len() > 0 && missing_properties.len() > 0
+        if !required_properties.is_empty() && !missing_properties.is_empty()
         {
             return Err(ValidationError::MissingRequiredProperty {
-                property: missing_properties.get(0).unwrap().clone(),
+                property: missing_properties.first().unwrap().clone(),
             });
         }
         Ok(())
@@ -108,8 +102,8 @@ impl<'model_manager> MetamodelManager {
                                 .filter(|x| x.is_err())
                                 .collect::<Vec<Result<(), ValidationError>>>();
 
-                            if validation_errors.len() > 0 {
-                                match validation_errors.get(0).unwrap() {
+                            if !validation_errors.is_empty() {
+                                match validation_errors.first().unwrap() {
                                     Err(e) => Err(ValidationError::Generic {
                                         message: e.to_string(),
                                     }),
@@ -119,7 +113,7 @@ impl<'model_manager> MetamodelManager {
                                 Ok(())
                             }
                         } else {
-                            return Err(ValidationError::Generic {
+                            Err(ValidationError::Generic {
                                 message: format!("Error validating property {:}. Expected an array.", prop_name),
                             })
                         }
@@ -140,8 +134,8 @@ impl<'model_manager> MetamodelManager {
             .filter(|x| x.is_err())
             .collect::<Vec<_>>();
 
-        if validation_errors.len() > 0 {
-            let first_err = validation_errors.get(0);
+        if !validation_errors.is_empty() {
+            let first_err = validation_errors.first();
             return Err(ValidationError::Generic {
                 message: format!("{:?}", first_err),
             });
@@ -184,8 +178,7 @@ impl<'model_manager> MetamodelManager {
             .as_bool()
             .ok_or(ValidationError::UnexpectedType {
                 expected: "Boolean".to_string(),
-            })
-            .and_then(|_| Ok(()))
+            }).map(|_| ())
     }
 
     fn validate_integer_property(&self, thing: &'model_manager Value) -> Result<(), ValidationError> {
@@ -193,8 +186,7 @@ impl<'model_manager> MetamodelManager {
             .as_i64()
             .ok_or(ValidationError::UnexpectedType {
                 expected: "Integer".to_string(),
-            })
-            .and_then(|_| Ok(()))
+            }).map(|_| ())
     }
 
     fn validate_double_property(&self, thing: &'model_manager Value) -> Result<(), ValidationError> {
@@ -202,8 +194,7 @@ impl<'model_manager> MetamodelManager {
             .as_f64()
             .ok_or(ValidationError::UnexpectedType {
                 expected: "Double".to_string(),
-            })
-            .and_then(|_| Ok(()))
+            }).map(|_| ())
     }
 
     fn validate_object_property(&self, thing: &'model_manager Value) -> Result<(), ValidationError> {

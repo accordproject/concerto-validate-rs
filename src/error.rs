@@ -18,7 +18,7 @@ pub enum ValidationError {
 
     #[error("Type mismatch: expected {expected}")]
     UnexpectedType { expected: String },
-    
+
     #[error("Missing required property: {property}")]
     MissingRequiredProperty { property: String },
 
@@ -28,8 +28,8 @@ pub enum ValidationError {
     #[error("Unknown class: {class_name}")]
     UnknownClass { class_name: String },
 
-    #[error("Unknown property: {property_name} for type {type_name}")]
-    UnknownProperty { property_name: String, type_name: String },
+    #[error("Unknown property: {property_name}")]
+    UnknownProperty { property_name: String },
 
     #[error("Metamodel loading error: {message}")]
     MetamodelError { message: String },
