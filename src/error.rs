@@ -36,6 +36,15 @@ pub enum ValidationError {
 
     #[error("Unknown error")]
     UnknownError,
+    
+    #[error("String validation error: {message}")]
+    StringValidationError {message: String},
+
+    #[error("Missing type definition: {name}")]
+    MissingTypeDefinition { name: String },
+    
+    #[error("Missing super-type definition for {name}")]
+    MissingSuperTypeDefinition { name: String },
 
     #[error("Generic: {message}")]
     Generic { message: String },

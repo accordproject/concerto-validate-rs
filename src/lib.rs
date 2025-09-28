@@ -1,16 +1,21 @@
 //! Concerto Validator RS
 //!
-//! A Rust library that validates Accord Project Concerto data models in their JSON AST format.
-//! This library replicates the validation logic from the JavaScript implementation.
+//! A Rust library that validates Accord Project Concerto data models in their JSON AST format
+//! against the [Concerto Metamodel](https://models.accordproject.org/concerto/metamodel@1.0.0.html)
+//! 
+//! Currently, the library only exposes a single function to validate Concerto ASTs,
+//! although internally there are primitive implementations of structures that would sound familiar
+//! to the JS classes, like [`ModelManager`](crate::model_manager::ModelManager). But they are not
+//! ready for public consumption yet.
 
 pub mod error;
-pub mod metamodel_manager;
-pub mod validator;
+mod model_manager;
+mod validator;
 
 pub use error::{ValidationError, ValidationResult};
-pub use validator::Validator;
+use validator::Validator;
 
-/// Validates a Concerto model JSON AST against the metamodel
+/// Validates a Concerto model JSON AST against the system metamodel
 pub fn validate_metamodel(json_ast: &str) -> ValidationResult<()> {
     let validator = Validator::new()?;
     validator.validate(json_ast)

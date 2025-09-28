@@ -1,4 +1,4 @@
-use concerto_validator_rs::{validate_metamodel, Validator};
+use concerto_validator_rs::{validate_metamodel};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Example 1: Using the convenience function
@@ -40,16 +40,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     match validate_metamodel(sample_model) {
         Ok(()) => println!("✅ Model validation successful!"),
         Err(e) => println!("❌ Model validation failed: {}", e),
-    }
-
-    // Example 2: Using the validator directly
-    println!("\n=== Example 2: Using validator directly ===");
-
-    let validator = Validator::new()?;
-
-    match validator.validate(sample_model) {
-        Ok(()) => println!("✅ Direct validation successful!"),
-        Err(e) => println!("❌ Direct validation failed: {}", e),
     }
 
     // Example 3: Validating an invalid model

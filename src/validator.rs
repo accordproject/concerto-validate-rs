@@ -1,13 +1,13 @@
 use crate::error::ValidationResult;
-use crate::metamodel_manager::MetamodelManager;
+use crate::model_manager::ModelManager;
 
 pub struct Validator {
-    metamodel_manager: MetamodelManager,
+    metamodel_manager: ModelManager,
 }
 
 impl Validator {
     pub fn new() -> Result<Self, crate::error::ValidationError> {
-        let metamodel_manager = MetamodelManager::new()?;
+        let metamodel_manager = ModelManager::new()?;
 
         Ok(Self { metamodel_manager })
     }

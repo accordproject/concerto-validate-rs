@@ -1,54 +1,82 @@
 mod type_definition;
 
-use crate::error::ValidationError;
-use type_definition::{ConceptDeclaration, Property, TypeDefinition};
-use serde_json::Value;
+mod ast_structures;
+
 use std::collections::{HashMap, HashSet};
-use serde_json::Map;
+
+use serde_json::{Map, Value};
+use regex::Regex;
+
+use crate::error::ValidationError;
+use crate::model_manager::ast_structures::{ConceptDeclaration, Property, SuperType};
+use crate::model_manager::type_definition::TypeDefinition;
 
 type JsonObject = Map<String, Value>;
+type TypeRegistry = HashMap<String, TypeDefinition>;
 
 const CONCERTO_METAMODEL_NAMESPACE: &str = "concerto.metamodel@1.0.0";
 
-/// MetamodelManager loads the system definitions and validates
-/// Given Concerto AST
-pub struct MetamodelManager {
-    /// Registry of type declarations from the metamodel
-    type_registry: HashMap<String, TypeDefinition>,
+/// Loads the system definitions and validates
+/// given resource.
+/// Currently, there isn't a way to add more metamodels.
+pub(crate) struct ModelManager {
+    /// Internal look up for all the loaded type definitions.
+    /// See [`TypeDefinition`](crate::model_manager::type_definition::TypeDefinition).
+    type_registry: TypeRegistry,
+    /// Internal look up for string validator regexes.
+    /// Regexes are pre-compiled at creation time.
+    /// See [`Regex`](regex::Regex).
+    regex_cache: HashMap<String, Regex>,
 }
 
-// Public API
-impl<'model_manager> MetamodelManager {
+/// Public API
+impl<'model_manager> ModelManager {
+    /// Create a new `ModelManager`.
     pub fn new() -> Result<Self, ValidationError> {
         // Embed the Concerto metamodel from the downloaded JSON file
         let metamodel_json = include_str!("../../metamodel.json");
         let concerto_metamodel: Value = serde_json::from_str(metamodel_json)?;
 
         let type_registry = Self::build_type_registry(&concerto_metamodel)?;
+        let regex_cache = Self::build_regex_cache(&type_registry);
 
-        Ok(Self { type_registry })
+        Ok(Self { type_registry, regex_cache })
     }
 
+    /// Validate a Concerto AST.
     pub fn validate_metamodel(&self, thing: &'model_manager Value) -> Result<(), ValidationError> {
         let obj = self.get_serialized_object(thing)?;
         self.validate_resource(obj)
     }
 }
 
-// Validate resource
-impl<'model_manager> MetamodelManager {
+/// Internal validation functions.
+impl<'model_manager> ModelManager {
     // Validates a resource
     fn validate_resource(&self, thing: &'model_manager JsonObject) -> Result<(), ValidationError> {
         let class_name = self.get_class_name(thing)?;
 
         let type_def = self.get_type_definition(class_name)?;
 
-        let expected_properties = type_def.expected_properties();
-        let required_properties = type_def.required_properties();
+        let mut expected_properties = type_def.expected_properties();
+        let mut required_properties = type_def.required_properties();
+
+        if type_def.has_supertype() {
+            let super_type = type_def.get_supertype().ok_or(ValidationError::MissingSuperTypeDefinition {
+                name: class_name.to_string(),
+            })?;
+            let super_type_definition = self.get_supertype_definition(super_type)?;
+            super_type_definition.expected_properties().iter().for_each(|(k, v)| {
+               expected_properties.insert(k.to_string(), v);
+            });
+            super_type_definition.required_properties().iter().for_each(|(k, v)| {
+                required_properties.insert(k.to_string(), v);
+            });
+        }
 
         self.validate_expected_properties(thing, &expected_properties)?;
         self.validate_required_properties(thing, &required_properties)?;
-        self.validate_property_structure(thing, type_def)?;
+        self.validate_property_structure(thing, &expected_properties)?;
         Ok(())
     }
 
@@ -83,8 +111,7 @@ impl<'model_manager> MetamodelManager {
         Ok(())
     }
 
-    fn validate_property_structure(&self, thing: &'model_manager JsonObject, type_def: &TypeDefinition) -> Result<(), ValidationError> {
-        let properties = type_def.expected_properties();
+    fn validate_property_structure(&self, thing: &'model_manager JsonObject, properties: &HashMap<String, &Property>) -> Result<(), ValidationError> {
         let validations = thing
             .iter()
             .map(|(prop_name, prop_value)| {
@@ -145,8 +172,8 @@ impl<'model_manager> MetamodelManager {
     }
 }
 
-// Validate property
-impl<'model_manager> MetamodelManager {
+/// Functions related to property validations.
+impl<'model_manager> ModelManager {
     fn validate_property(
         &self,
         type_def: &Property,
@@ -156,7 +183,7 @@ impl<'model_manager> MetamodelManager {
             "concerto.metamodel@1.0.0.ObjectProperty" => {
                 self.validate_object_property(thing)
             },
-            "concerto.metamodel@1.0.0.StringProperty" => self.validate_string_property(thing),
+            "concerto.metamodel@1.0.0.StringProperty" => self.validate_string_property(thing, type_def),
             "concerto.metamodel@1.0.0.BooleanProperty" => self.validate_boolean_property(thing),
             "concerto.metamodel@1.0.0.DoubleProperty" => self.validate_double_property(thing),
             "concerto.metamodel@1.0.0.IntegerProperty" => self.validate_integer_property(thing),
@@ -166,10 +193,21 @@ impl<'model_manager> MetamodelManager {
         }
     }
 
-    fn validate_string_property(&self, thing: &'model_manager Value) -> Result<(), ValidationError> {
-        thing.as_str().ok_or(ValidationError::UnexpectedType {
+    fn validate_string_property(&self, thing: &'model_manager Value, type_def: &Property) -> Result<(), ValidationError> {
+        let str = thing.as_str().ok_or(ValidationError::UnexpectedType {
             expected: "String".to_string(),
         })?;
+        if let Some(validator) = &type_def.validator {
+            let pattern = &validator.pattern;
+            let re = self.regex_cache.get(pattern).ok_or( ValidationError::StringValidationError {
+                message: format!("Cannot compile pattern {}", pattern)
+            })?;
+            if !re.is_match(str) {
+                return Err(ValidationError::StringValidationError {
+                    message: format!("Invalid string property: {}", str)
+                })
+            }
+        }
         Ok(())
     }
 
@@ -204,11 +242,11 @@ impl<'model_manager> MetamodelManager {
     }
 }
 
-// Ancillary implementations
-impl<'model_manager> MetamodelManager {
+/// Ancillary functions that still needs to be part of `ModelManager`.
+impl<'model_manager> ModelManager {
     fn build_type_registry(
         metamodel: &'model_manager Value,
-    ) -> Result<HashMap<String, TypeDefinition>, ValidationError> {
+    ) -> Result<TypeRegistry, ValidationError> {
         let declarations = metamodel
             .get("declarations")
             .and_then(|v| v.as_array())
@@ -249,12 +287,36 @@ impl<'model_manager> MetamodelManager {
         Ok(type_map)
     }
 
+    fn build_regex_cache(type_registry: &TypeRegistry) -> HashMap<String, Regex> {
+        let mut cache = HashMap::<String, Regex>::new();
+        type_registry.values().for_each(|type_def| {
+
+            type_def.get_string_validator_patterns().iter().for_each(|pattern| {
+                let pattern = &pattern;
+                if let Ok(re) = Regex::new(pattern) {
+                    cache.insert(pattern.to_string(), re);
+                }
+            })
+        });
+
+        cache
+    }
+
     fn get_type_definition(&self, full_name: &str) -> Result<&TypeDefinition, ValidationError> {
         self.type_registry
             .get(full_name)
             .ok_or(ValidationError::Generic {
                 message: format!("Error getting type def {}", full_name),
             })
+    }
+
+    fn get_supertype_definition(&self, super_type: &SuperType) -> Result<&TypeDefinition, ValidationError> {
+        let class_name = if let Some(ns) = &super_type.namespace {
+            format!{"{}.{}", ns, super_type.name}
+        } else {
+            format!{"{}.{}", CONCERTO_METAMODEL_NAMESPACE, super_type.name}
+        };
+        self.get_type_definition(&class_name)
     }
 
     fn get_class_name(&self, thing: &'model_manager JsonObject) -> Result<&'model_manager str, ValidationError> {
