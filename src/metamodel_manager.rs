@@ -31,6 +31,7 @@ impl<'model_manager> MetamodelManager {
 
 // Validate implementations
 impl<'model_manager> MetamodelManager {
+    // Validates a resource
     fn validate_resource(&self, thing: &'model_manager Value) -> Result<(), ValidationError> {
         let obj = self.get_serialized_object(thing)?;
         let class_name = self.get_class_name(thing)?;
