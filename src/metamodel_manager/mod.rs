@@ -4,7 +4,7 @@ use crate::error::ValidationError;
 use type_definition::{ConceptDeclaration, Property, TypeDefinition};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use serde_json::Map;
 
 type JsonObject = Map<String, Value>;
