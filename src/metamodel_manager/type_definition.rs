@@ -12,10 +12,6 @@ impl TypeDefinition {
         }
     }
 
-    // pub fn properties(&self) -> Vec<&Property> {
-    //     self.inner.properties.iter().map(|x| x).collect()
-    // }
-
     pub fn expected_properties(&self) -> HashMap<String, &Property> {
         self.inner.properties.iter().map(|x| (x.name.clone(), x)).collect()
     }
