@@ -1,7 +1,13 @@
+mod type_definition;
+
 use crate::error::ValidationError;
+use type_definition::{ConceptDeclaration, Property, TypeDefinition};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use std::collections::{HashMap, HashSet};
+use serde_json::Map;
+
+type JsonObject = Map<String, Value>;
 
 const CONCERTO_METAMODEL_NAMESPACE: &str = "concerto.metamodel@1.0.0";
 
@@ -9,14 +15,14 @@ const CONCERTO_METAMODEL_NAMESPACE: &str = "concerto.metamodel@1.0.0";
 /// Given Concerto AST
 pub struct MetamodelManager {
     /// Registry of type declarations from the metamodel
-    type_registry: HashMap<String, ConceptDeclaration>,
+    type_registry: HashMap<String, TypeDefinition>,
 }
 
 // Public API
 impl<'model_manager> MetamodelManager {
     pub fn new() -> Result<Self, ValidationError> {
         // Embed the Concerto metamodel from the downloaded JSON file
-        let metamodel_json = include_str!("../metamodel.json");
+        let metamodel_json = include_str!("../../metamodel.json");
         let concerto_metamodel: Value = serde_json::from_str(metamodel_json)?;
 
         let type_registry = Self::build_type_registry(&concerto_metamodel)?;
@@ -25,23 +31,29 @@ impl<'model_manager> MetamodelManager {
     }
 
     pub fn validate_metamodel(&self, thing: &'model_manager Value) -> Result<(), ValidationError> {
-        self.validate_resource(thing)
+        let obj = self.get_serialized_object(thing)?;
+        self.validate_resource(obj)
     }
 }
 
-// Validate implementations
+// Validate resource
 impl<'model_manager> MetamodelManager {
     // Validates a resource
-    fn validate_resource(&self, thing: &'model_manager Value) -> Result<(), ValidationError> {
-        let obj = self.get_serialized_object(thing)?;
+    fn validate_resource(&self, thing: &'model_manager JsonObject) -> Result<(), ValidationError> {
         let class_name = self.get_class_name(thing)?;
 
         let type_def = self.get_type_definition(&class_name)?;
 
-        let expected_properties: HashMap<String, &Property> =
-            HashMap::from_iter(type_def.properties.iter().map(|x| (x.name.clone(), x)));
+        self.validate_expected_properties(thing, type_def)?;
+        self.validate_required_properties(thing, type_def)?;
+        self.validate_property_structure(thing, type_def)?;
+        Ok(())
+    }
 
-        let invalid_properties = obj
+    fn validate_expected_properties(&self, thing: &'model_manager JsonObject, type_def: &TypeDefinition) -> Result<(), ValidationError> {
+        let expected_properties = type_def.expected_properties();
+
+        let invalid_properties = thing
             .keys()
             .map(|x| x.clone())
             .filter(|x| !expected_properties.contains_key(x) && x != "$class")
@@ -52,37 +64,36 @@ impl<'model_manager> MetamodelManager {
                 property_name: invalid_properties.get(0).unwrap().clone(),
             });
         }
+        Ok(())
+    }
 
-        let required_properties = type_def
-            .properties
-            .iter()
-            .filter(|x| !x.is_optional)
-            .map(|x| x.name.clone())
-            .collect::<HashSet<String>>();
+    fn validate_required_properties(&self, thing: &'model_manager JsonObject, type_def: &TypeDefinition) -> Result<(), ValidationError> {
+        let required_properties = type_def.required_properties();
 
-        let thing_req_properties = obj
-            .keys()
+        let missing_properties = thing.keys()
             .map(|x| x.clone())
-            .filter(|x| required_properties.contains(x))
+            .filter(|x| !required_properties.get(x).is_some())
             .collect::<Vec<String>>();
 
-        if required_properties.len() > 0 && required_properties.len() != thing_req_properties.len()
+        if required_properties.len() > 0 && missing_properties.len() > 0
         {
             return Err(ValidationError::MissingProperty {
-                property: required_properties.into_iter().take(1).collect(),
+                property: missing_properties.get(0).unwrap().clone(),
             });
         }
+        Ok(())
+    }
 
-        let validations = obj
+    fn validate_property_structure(&self, thing: &'model_manager JsonObject, type_def: &TypeDefinition) -> Result<(), ValidationError> {
+        let properties = type_def.expected_properties();
+        let validations = thing
             .iter()
             .map(|(prop_name, prop_value)| {
                 if prop_name == "$class" {
                     return Ok(());
                 }
-                if let Some(property_type) = expected_properties.get(prop_name) {
-                    // let class_name = &property_type.class;
-
-                    self.validate_type_property(property_type, prop_value)
+                if let Some(property_type) = properties.get(prop_name) {
+                    self.validate_property(property_type, prop_value)
                 } else {
                     Err(ValidationError::Generic {
                         message: format!("Error validating property {:}", prop_name),
@@ -102,10 +113,14 @@ impl<'model_manager> MetamodelManager {
                 message: format!("{:?}", first_err),
             });
         };
+
         Ok(())
     }
+}
 
-    fn validate_type_property(
+// Validate property
+impl<'model_manager> MetamodelManager {
+    fn validate_property(
         &self,
         type_def: &Property,
         thing: &'model_manager Value,
@@ -173,7 +188,7 @@ impl<'model_manager> MetamodelManager {
 impl<'model_manager> MetamodelManager {
     fn build_type_registry(
         metamodel: &'model_manager Value,
-    ) -> Result<HashMap<String, ConceptDeclaration>, ValidationError> {
+    ) -> Result<HashMap<String, TypeDefinition>, ValidationError> {
         let declarations = metamodel
             .get("declarations")
             .and_then(|v| v.as_array())
@@ -208,13 +223,13 @@ impl<'model_manager> MetamodelManager {
         let type_map = parsed_definitions
             .iter()
             .map(|def| def.as_ref().ok().unwrap())
-            .map(|def| (format!("{}.{}", namespace, def.name), def.clone()))
-            .collect::<HashMap<String, ConceptDeclaration>>();
+            .map(|def| (format!("{}.{}", namespace, def.name), TypeDefinition::new(def.clone())))
+            .collect::<HashMap<String, TypeDefinition>>();
 
         Ok(type_map)
     }
 
-    fn get_type_definition(&self, full_name: &str) -> Result<&ConceptDeclaration, ValidationError> {
+    fn get_type_definition(&self, full_name: &str) -> Result<&TypeDefinition, ValidationError> {
         self.type_registry
             .get(full_name)
             .ok_or(ValidationError::Generic {
@@ -222,7 +237,7 @@ impl<'model_manager> MetamodelManager {
             })
     }
 
-    fn get_class_name(&self, thing: &'model_manager Value) -> Result<&'model_manager str, ValidationError> {
+    fn get_class_name(&self, thing: &'model_manager JsonObject) -> Result<&'model_manager str, ValidationError> {
         thing.get("$class").ok_or(ValidationError::MissingProperty {
             property: "$class".to_string(),
         })?.as_str().ok_or(ValidationError::Generic {
@@ -230,7 +245,7 @@ impl<'model_manager> MetamodelManager {
         })
     }
 
-    fn get_serialized_object(&self, thing: &'model_manager Value) -> Result<&'model_manager serde_json::Map<String, Value>, ValidationError> {
+    fn get_serialized_object(&self, thing: &'model_manager Value) -> Result<&'model_manager JsonObject, ValidationError> {
         thing
             .as_object()
             .ok_or_else(|| ValidationError::TypeMismatch {
@@ -240,33 +255,3 @@ impl<'model_manager> MetamodelManager {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct Property {
-    #[serde(rename = "$class")]
-    class: String,
-    name: String,
-    #[serde(rename = "isArray")]
-    is_array: bool,
-    #[serde(rename = "isOptional")]
-    is_optional: bool,
-    #[serde(rename = "type")]
-    super_type: SuperType,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct ConceptDeclaration {
-    #[serde(rename = "$class")]
-    class: String,
-    #[serde(rename = "isAbstract")]
-    is_abstract: bool,
-    properties: Vec<Property>,
-    name: String,
-    #[serde(rename = "superType")]
-    super_type: SuperType,
-}
-#[derive(Serialize, Deserialize, Debug, Clone)]
-struct SuperType {
-    #[serde(rename = "$class")]
-    class: String,
-    name: String,
-}
