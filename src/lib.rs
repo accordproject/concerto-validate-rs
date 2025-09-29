@@ -97,4 +97,37 @@ mod tests {
             result
         );
     }
+
+    #[test]
+    fn test_extra_properties() {
+        let simple_model = r#"{
+            "$class": "concerto.metamodel@1.0.0.Model",
+            "namespace": "test.namespace@1.0.0",
+            "imports": [],
+            "declarations": [
+                {
+                    "$class": "concerto.metamodel@1.0.0.ConceptDeclaration",
+                    "name": "TestConcept",
+                    "isAbstract": false,
+                    "isOptional": false,
+                    "properties": [
+                        {
+                            "$class": "concerto.metamodel@1.0.0.StringProperty",
+                            "name": "testField",
+                            "isArray": false,
+                            "isOptional": false,
+                            "propertyType": "String"
+                        }
+                    ]
+                }
+            ]
+        }"#;
+
+        let result = validate_metamodel(simple_model);
+        assert!(
+            result.is_err(),
+            "Extra properties should fail validation: {:?}",
+            result
+        );
+    }
 }
