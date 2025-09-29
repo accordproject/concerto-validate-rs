@@ -19,6 +19,7 @@ This validator implements the core functionality of the JavaScript `validateMeta
 - ✅ **Error Reporting**: Provides detailed error messages for debugging
 - ✅ **Self-Validation**: Can validate the Concerto metamodel itself
 - ✅ **Performance**: Fast validation using native Rust performance
+- ✅ **Command Line Interface**: Extensible CLI tool for validating JSON files
 
 ## Installation
 Currently the library is in early development phase, the package is not published to [crates.io](crates.io) yet.
@@ -43,7 +44,42 @@ This ensures that your validator is always using the official, up-to-date metamo
 
 ## Usage
 
-### Basic Usage
+### Command Line Interface
+
+The project includes a command-line tool for validating Concerto model JSON files:
+
+#### Building the CLI
+```bash
+cargo build
+```
+
+#### Basic Validation
+```bash
+# Validate a single file
+./target/debug/concerto-validator validate --input model.json
+
+# Validate multiple files
+./target/debug/concerto-validator validate --input model1.json --input model2.json --input model3.json
+
+# Stop at the first error (fail-early mode)
+./target/debug/concerto-validator validate --input model1.json --input model2.json --fail-early
+```
+
+#### CLI Help
+```bash
+# General help
+./target/debug/concerto-validator --help
+
+# Help for the validate command
+./target/debug/concerto-validator validate --help
+
+# Show version
+./target/debug/concerto-validator --version
+```
+
+### Library Usage
+
+#### Basic Usage
 
 ```rust
 use concerto_validator_rs::validate_metamodel;
