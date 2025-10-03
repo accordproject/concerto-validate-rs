@@ -12,12 +12,20 @@ pub mod error;
 mod model_manager;
 mod validator;
 
+use std::sync::OnceLock;
+
+
 pub use error::{ValidationError, ValidationResult};
 use validator::Validator;
 
+// Reference to hold singleton instance of Validator
+static GLOBAL_VALIDATOR: OnceLock<Option<Validator>> = OnceLock::new();
+
 /// Validates a Concerto model JSON AST against the system metamodel
 pub fn validate_metamodel(json_ast: &str) -> ValidationResult<()> {
-    let validator = Validator::new()?;
+    let validator = GLOBAL_VALIDATOR.get_or_init( ||  {
+        Validator::new().ok()
+    }).as_ref().ok_or(ValidationError::ValidatorInitializationError)?;
     validator.validate(json_ast)
 }
 

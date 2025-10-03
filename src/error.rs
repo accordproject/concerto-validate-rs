@@ -48,4 +48,7 @@ pub enum ValidationError {
 
     #[error("Generic: {message}")]
     Generic { message: String },
+
+    #[error("Validator Initialisation Error")]
+    ValidatorInitializationError,
 }
